@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="hu">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Egyensúlyozós Játék</title>
+    <style>
+        body {
+            text-align: center;
+            font-family: 'Arial', sans-serif;
+            overflow: hidden;
+            background-color: #e0f7fa;
+            color: #00796b;
+        }
+        h1 {
+            margin-top: 20px;
+            font-size: 2.5em;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.2);
+        }
+        canvas {
+            background: #ffffff;
+            border: 2px solid #00796b;
+            border-radius: 10px;
+            display: block;
+            margin: 20px auto;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
+        }
+        #info {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            text-align: left;
+            background: rgba(255, 255, 255, 0.8);
+            padding: 10px;
+            border-radius: 8px;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+        }
+        #gameOverScreen {
+            display: none;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(0, 0, 0, 0.8);
+            color: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.5);
+        }
+        button {
+            background-color: #00796b;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 1em;
+            transition: background-color 0.3s;
+        }
+        button:hover {
+            background-color: #004d40;
+        }
+        p {
+            font-size: 1.2em;
+        }
+    </style>
+</head>
+<body>
+    <h1>Egyensúlyozós Játék</h1>
+    <div id="info">
+        <p>Pontszám: <span id="score">0</span></p>
+        <p>Idő: <span id="time">0</span> mp</p>
+        <p>Legjobb idő: <span id="bestTime">0</span> mp</p>
+    </div>
+    <canvas id="gameCanvas" width="500" height="400"></canvas>
+    <p>Nyomd meg a Space-t a kezdéshez! Használd a bal és jobb nyilakat vagy a 'A' és 'D' billentyűket a platform mozgatásához!</p>
+    <div id="gameOverScreen">
+        <h2>Game Over!</h2>
+        <p>Elért időd: <span id="finalTime">0</span> mp</p>
+        <button onclick="restartGame()">Újra</button>
+    </div>
+    <script>
+        const canvas = document.getElementById("gameCanvas");
+        const ctx = canvas.getContext("2d");
+        const scoreDisplay = document.getElementById("score");
+        const timeDisplay = document.getElementById("time");
+        const bestTimeDisplay = document.getElementById("bestTime");
+        const gameOverScreen = document.getElementById("gameOverScreen");
+        const finalTimeDisplay = document.getElementById("finalTime");
+        
+        const platform = { x: 200, y: 350, width: 60, height: 10, speed: 10 };
+        const ball = { x: 250, y: 200, radius: 10, dx: 2, dy: 0, gravity: 0.2, falling: false };
+        let leftPressed = false;
+        let rightPressed = false;
+        let score = 0;
+        let startTime = 0;
+        let elapsedTime = 0;
+        let bestTime = localStorage.getItem("bestTime") || 0;
+        let gameActive = false;
+        let speedIncreaseInterval;
+        
+        const bounceHeight = 10; 
+        const initialSpeed = -10; 
+
+        bestTimeDisplay.textContent = bestTime;
+        
+        document.addEventListener("keydown", (e) => {
+            if (e.key === "ArrowLeft" || e.key === "a") leftPressed = true;
+            if (e.key === "ArrowRight" || e.key === "d") rightPressed = true;
+            if (e.key === " ") startGame();
+        });
+        
+        document.addEventListener("keyup", (e) => {
+            if (e.key === "ArrowLeft" || e.key === "a") leftPressed = false;
+            if (e.key === "ArrowRight" || e.key === "d") rightPressed = false;
+        });
+        
+        function startGame() {
+            if (!gameActive) {
+                gameActive = true;
+                ball.falling = true;
+                startTime = Date.now();
+                score = 0;
+                scoreDisplay.textContent = score;
+                ball.dy = initialSpeed;
+                speedIncreaseInterval = setInterval(() => {
+                    ball.dy *= 1.1; 
+                }, 5000);
+                gameLoop();
+            }
+        }
+        
+        function restartGame() {
+            gameOverScreen.style.display = "none";
+            ball.x = 250;
+            ball.y = 200;
+            ball.dy = 0;
+            ball.falling = false;
+            gameActive = false;
+            elapsedTime = 0;
+            score = 0;
+            timeDisplay.textContent = 0;
+            scoreDisplay.textContent = score;
+            clearInterval(speedIncreaseInterval);
+            
+            
+            startGame();
+        }
+        
+        function update() {
+            if (!ball.falling) return;
+
+            if (leftPressed && platform.x > 0) platform.x -= platform.speed;
+            if (rightPressed && platform.x + platform.width < canvas.width) platform.x += platform.speed;
+
+            ball.dy += ball.gravity;
+            ball.x += ball.dx;
+            ball.y += ball.dy;
+
+           
+            if (ball.x - ball.radius < 0 || ball.x + ball.radius > canvas.width) {
+                ball.dx *= -1; 
+            }
+
+            
+            if (ball.y + ball.radius > platform.y && ball.x > platform.x && ball.x < platform.x + platform.width) {
+                ball.dy = initialSpeed; 
+                ball.y = platform.y - ball.radius; 
+                score += 10; 
+                scoreDisplay.textContent = score;
+            } else if (ball.y + ball.radius > canvas.height) {
+               
+                gameOver();
+            }
+            
+            elapsedTime = Math.floor((Date.now() - startTime) / 1000);
+            timeDisplay.textContent = elapsedTime;
+        }
+        
+        function draw() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            ctx.fillStyle = "#00796b";
+            ctx.fillRect(platform.x, platform.y, platform.width, platform.height);
+            ctx.beginPath();
+            ctx.arc(ball.x, ball.y, ball.radius, 0, Math.PI * 2);
+            ctx.fillStyle = "#e57373";
+            ctx.fill();
+            ctx.closePath();
+        }
+        
+        function gameLoop() {
+            if (!gameActive) return;
+            update();
+            draw();
+            requestAnimationFrame(gameLoop);
+        }
+        
+        function gameOver() {
+            gameActive = false;
+            gameOverScreen.style.display = "block";
+            finalTimeDisplay.textContent = elapsedTime;
+            clearInterval(speedIncreaseInterval);
+            
+            if (elapsedTime > bestTime) {
+                bestTime = elapsedTime;
+                localStorage.setItem("bestTime", bestTime);
+                bestTimeDisplay.textContent = bestTime;
+            }
+        }
+    </script>
+</body>
+</html>
